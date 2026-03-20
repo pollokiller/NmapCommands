@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NMAP :: Security Audit Toolkit</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff41;
+    --green-dim: #00cc33;
+    --green-dark: #003b0f;
+    --green-glow: rgba(0,255,65,0.18);
+    --green-glow-strong: rgba(0,255,65,0.45);
+    --bg: #020c02;
+    --bg2: #040f04;
+    --bg-card: #061206;
+    --amber: #ffb300;
+    --red: #ff2e2e;
+    --cyan: #00e5ff;
+    --white: #e8ffe8;
+    --border: rgba(0,255,65,0.25);
+    --border-bright: rgba(0,255,65,0.6);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.75) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    padding: 3rem 2rem 2rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,65,0.08) 0%, transparent 70%);
+  }
+
+  .header-badge {
+    display: inline-block;
+    font-family: 'VT323', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.35em;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    padding: 2px 14px;
+    margin-bottom: 1rem;
+    animation: blink-border 2s step-end infinite;
+  }
+
+  @keyframes blink-border {
+    50% { border-color: transparent; }
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2.2rem, 6vw, 5rem);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-shadow:
+      0 0 10px var(--green),
+      0 0 30px var(--green-glow-strong),
+      0 0 80px rgba(0,255,65,0.2);
+    line-height: 1;
+    animation: flicker 8s infinite;
+  }
+
+  @keyframes flicker {
+    0%,95%,100% { opacity: 1; }
+    96% { opacity: 0.85; }
+    97% { opacity: 1; }
+    98% { opacity: 0.7; }
+    99% { opacity: 1; }
+  }
+
+  .subtitle {
+    font-family: 'VT323', monospace;
+    font-size: 1.3rem;
+    color: var(--green-dim);
+    letter-spacing: 0.2em;
+    margin-top: 0.6rem;
+  }
+
+  .matrix-rain-container {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0.07;
+  }
+
+  .matrix-col {
+    position: absolute;
+    top: -100%;
+    width: 14px;
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    color: var(--green);
+    animation: fall linear infinite;
+    writing-mode: vertical-lr;
+    letter-spacing: 4px;
+  }
+
+  @keyframes fall {
+    to { top: 110%; }
+  }
+
+  /* ── NAV TABS ── */
+  .nav-bar {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    padding: 0 1rem;
+  }
+
+  .nav-bar::-webkit-scrollbar { height: 3px; background: var(--bg); }
+  .nav-bar::-webkit-scrollbar-thumb { background: var(--green-dark); }
+
+  .nav-tab {
+    padding: 0.75rem 1.2rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .nav-tab:hover { color: var(--green); border-bottom-color: var(--green-dark); }
+  .nav-tab.active {
+    color: var(--green);
+    border-bottom-color: var(--green);
+    background: rgba(0,255,65,0.04);
+    text-shadow: 0 0 8px var(--green);
+  }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── SECTIONS ── */
+  .section { display: none; animation: fadeIn 0.4s ease; }
+  .section.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--amber);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,179,0,0.25);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .section-title::before {
+    content: '//';
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ── COMMAND CARDS ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(520px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .cmd-card {
+    background: var(--bg-card);
+    padding: 1.2rem 1.4rem;
+    position: relative;
+    transition: background 0.2s;
+    overflow: hidden;
+  }
+
+  .cmd-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--green-dark);
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+
+  .cmd-card:hover {
+    background: rgba(0,255,65,0.03);
+  }
+
+  .cmd-card:hover::before {
+    background: var(--green);
+    box-shadow: 0 0 10px var(--green);
+  }
+
+  .cmd-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    border: 1px solid;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .tag-danger { border-color: var(--red); color: var(--red); }
+  .tag-warning { border-color: var(--amber); color: var(--amber); }
+  .tag-safe { border-color: var(--green-dim); color: var(--green-dim); }
+  .tag-stealth { border-color: var(--cyan); color: var(--cyan); }
+
+  .cmd-code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--green);
+    background: rgba(0,0,0,0.5);
+    padding: 0.5rem 0.8rem;
+    border-left: 2px solid var(--green-dark);
+    margin: 0.4rem 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    word-break: break-all;
+    position: relative;
+  }
+
+  .cmd-code::before { content: '$'; color: var(--green-dim); flex-shrink: 0; margin-top: 0px; }
+
+  .cmd-code:hover {
+    border-color: var(--green);
+    box-shadow: inset 0 0 12px rgba(0,255,65,0.05);
+  }
+
+  .cmd-code .copy-hint {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.65rem;
+    color: var(--green-dim);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+
+  .cmd-code:hover .copy-hint { opacity: 1; }
+
+  .cmd-desc {
+    font-size: 0.78rem;
+    color: rgba(0,200,50,0.65);
+    line-height: 1.5;
+    margin-top: 0.3rem;
+  }
+
+  .copied-toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0.6rem 1.2rem;
+    box-shadow: 0 0 20px var(--green-glow);
+    z-index: 9997;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+
+  .copied-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── WIDE CARDS (single col full width) ── */
+  .grid-1col { grid-template-columns: 1fr; }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 0.8rem 1rem;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+
+  /* ── ALERT BOX ── */
+  .alert {
+    border: 1px solid var(--red);
+    background: rgba(255,46,46,0.05);
+    padding: 0.8rem 1.1rem;
+    font-size: 0.8rem;
+    color: var(--red);
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .alert-icon { flex-shrink: 0; font-size: 1rem; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.7rem;
+    color: var(--green-dark);
+    letter-spacing: 0.1em;
+  }
+
+  footer span { color: var(--green-dim); }
+
+  /* ── SEARCH ── */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .search-bar:focus-within { border-color: var(--green); box-shadow: 0 0 12px var(--green-glow); }
+
+  .search-bar input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.88rem;
+    caret-color: var(--green);
+  }
+
+  .search-bar input::placeholder { color: var(--green-dark); }
+  .search-prompt { color: var(--green-dim); font-size: 0.88rem; }
+
+  .no-results {
+    text-align: center;
+    padding: 3rem;
+    color: var(--green-dark);
+    font-size: 1rem;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- Matrix rain -->
+<header>
+  <div class="matrix-rain-container" id="matrixRain"></div>
+  <div class="header-badge">[ CLASSIFIED // SECURITY TOOLS ]</div>
+  <h1>NMAP TOOLKIT</h1>
+  <p class="subtitle">:: Network Audit Command Reference :: v7.95</p>
+</header>
+
+<!-- Navigation -->
+<nav class="nav-bar" id="navBar">
+  <button class="nav-tab active" data-section="all">⬡ ALL COMMANDS</button>
+  <button class="nav-tab" data-section="discovery">⬡ DISCOVERY</button>
+  <button class="nav-tab" data-section="ports">⬡ PORT SCAN</button>
+  <button class="nav-tab" data-section="stealth">⬡ STEALTH</button>
+  <button class="nav-tab" data-section="version">⬡ VERSION/OS</button>
+  <button class="nav-tab" data-section="scripts">⬡ NSE SCRIPTS</button>
+  <button class="nav-tab" data-section="firewall">⬡ FIREWALL/IDS</button>
+  <button class="nav-tab" data-section="output">⬡ OUTPUT</button>
+  <button class="nav-tab" data-section="performance">⬡ PERFORMANCE</button>
+</nav>
+
+<main>
+  <!-- SEARCH -->
+  <div class="search-bar" id="searchBar" style="display:none;">
+    <span class="search-prompt">grep &gt;</span>
+    <input type="text" id="searchInput" placeholder="buscar comando o descripción..." autocomplete="off">
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item"><span class="tag tag-danger">AGRESIVO</span> Ruidoso / detectable fácilmente</div>
+    <div class="legend-item"><span class="tag tag-warning">MODERADO</span> Puede generar logs</div>
+    <div class="legend-item"><span class="tag tag-safe">PASIVO</span> Bajo perfil</div>
+    <div class="legend-item"><span class="tag tag-stealth">STEALTH</span> Técnica evasiva</div>
+  </div>
+
+  <!-- LEGAL WARNING -->
+  <div class="alert">
+    <span class="alert-icon">⚠</span>
+    <span>AVISO LEGAL: Estos comandos deben usarse únicamente en sistemas propios o con autorización explícita por escrito. El acceso no autorizado a sistemas es un delito. Úsalo con responsabilidad.</span>
+  </div>
+
+  <div id="noResults" class="no-results">[ 0x00 ] — No se encontraron comandos que coincidan.</div>
+
+  <!-- ALL SECTION -->
+  <div class="section active" id="section-all">
+
+    <!-- DISCOVERY -->
+    <div class="section-title" id="grp-discovery">HOST DISCOVERY</div>
+    <div class="grid" data-group="discovery">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Ping Scan (sin puertos)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sn 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Descubre hosts activos en la red sin escanear puertos. Envía ICMP echo + TCP SYN al 80 + TCP ACK al 443.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> ARP Discovery (LAN)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sn -PR 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Usa ARP para descubrir hosts en la red local. Extremadamente confiable en redes internas.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Sin ping (ignora ICMP)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -Pn 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Trata todos los hosts como activos, omite la fase de descubrimiento. Útil cuando el firewall bloquea pings.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> DNS Inverso masivo</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sn --dns-servers 8.8.8.8 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Resolución DNS inversa contra servidores específicos para mapear hostnames de la red.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> TCP SYN Ping</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sn -PS22,80,443,3389 10.0.0.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Descubrimiento basado en SYN a puertos comunes. Efectivo cuando ICMP está bloqueado.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Lista de IPs desde archivo</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -iL targets.txt -sn<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Lee objetivos desde un archivo de texto. Ideal para auditorías con scope definido.</div>
+      </div>
+
+    </div>
+
+    <!-- PORTS -->
+    <div class="section-title" style="margin-top:2rem" id="grp-ports">PORT SCANNING</div>
+    <div class="grid" data-group="ports">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Top 1000 puertos (default)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Escanea los 1000 puertos TCP más comunes. Punto de entrada estándar en una auditoría.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> Todos los puertos TCP</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -p- 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Escanea todos los 65535 puertos TCP. Muy lento pero exhaustivo. Puede tardar horas sin optimización.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Puertos específicos</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -p 22,80,443,3306,8080,8443 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Escanea únicamente los puertos indicados. Rápido y preciso para verificar servicios conocidos.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Rango de puertos</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -p 1-10000 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Escanea un rango contiguo de puertos. Útil para cubrir puertos bajos y medios.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> UDP Scan</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sU -p 53,67,68,123,161,162 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Escanea puertos UDP críticos: DNS, DHCP, NTP, SNMP. UDP es frecuentemente ignorado en auditorías.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> TCP + UDP combinado</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sSU -p T:1-1000,U:53,161 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Combina escaneo SYN TCP con UDP selectivo en un solo comando. Requiere privilegios root.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Top N puertos más comunes</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --top-ports 500 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Escanea los N puertos más frecuentes según estadísticas de Internet. Balance entre velocidad y cobertura.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Puertos excluyendo rangos</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -p- --exclude-ports 80,443 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Escanea todos los puertos excepto los especificados. Útil para evitar alertas en servicios monitoreados.</div>
+      </div>
+
+    </div>
+
+    <!-- STEALTH -->
+    <div class="section-title" style="margin-top:2rem" id="grp-stealth">STEALTH & EVASION</div>
+    <div class="grid" data-group="stealth">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> SYN Scan (Half-Open)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sS 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">No completa el handshake TCP. Más silencioso que un connect scan y más rápido. Requiere root.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> FIN Scan</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sF -p 1-1000 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Envía paquetes FIN. Puede evadir firewalls sin estado. No funciona en sistemas Windows.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> NULL Scan</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sN -p 1-1000 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Envía paquetes sin flags TCP. Evasivo frente a algunos IDS. Sólo efectivo en sistemas Unix/Linux.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Xmas Scan</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sX -p 1-1000 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Activa flags FIN, PSH y URG simultáneamente. El nombre viene de su aspecto "iluminado" en Wireshark.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Decoy Scan (señuelos)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sS -D RND:10 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Genera 10 IPs señuelo aleatorias para enmascarar el origen real del escaneo en los logs del objetivo.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> IP Spoofing con interfaz</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sS -S 10.10.10.5 -e eth0 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Suplanta la IP de origen del escaneo. Requiere control de routing para recibir respuestas.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Fragmentación de paquetes</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sS -f -f 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Fragmenta los paquetes IP en trozos de 8 bytes. Puede evadir IDS que no reensamblan fragmentos.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Scan lento (IDS evasion)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sS -T1 --max-retries 1 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Timing paranoid: un paquete cada 5 minutos. Evita detección por correlación temporal en SIEMs.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Puerto origen personalizado</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sS --source-port 53 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Usa el puerto 53 (DNS) como origen para evadir reglas de firewall que permiten tráfico DNS saliente.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Idle/Zombie Scan</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sI zombie_host:80 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Usa un host "zombie" como intermediario. El escaneo parece provenir del zombie. Técnica avanzada.</div>
+      </div>
+
+    </div>
+
+    <!-- VERSION/OS -->
+    <div class="section-title" style="margin-top:2rem" id="grp-version">VERSION & OS DETECTION</div>
+    <div class="grid" data-group="version">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Detección de versiones</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sV 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Detecta versiones de los servicios en puertos abiertos. Fundamental para identificar software vulnerable.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Detección intensiva de versión</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sV --version-intensity 9 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Intensidad máxima de detección (0–9). Usa más probes pero identifica servicios oscuros o customizados.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> Detección de OS</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -O 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Fingerprinting de sistema operativo mediante análisis de stack TCP/IP. Requiere al menos 1 puerto abierto y 1 cerrado.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> OS + versión + scripts + traceroute</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -A 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Modo agresivo completo: OS detection, version scan, NSE scripts por defecto y traceroute. El más ruidoso.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> OS scan con adivinanza agresiva</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -O --osscan-guess 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Fuerza a nmap a adivinar el OS incluso cuando la confianza es baja. Más resultados, menor precisión.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> TTL y Window size fingerprinting</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sS -O --osscan-limit 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Limita detección de OS sólo a hosts prometedores. Ahorra tiempo en escaneos de red amplia.</div>
+      </div>
+
+    </div>
+
+    <!-- NSE SCRIPTS -->
+    <div class="section-title" style="margin-top:2rem" id="grp-scripts">NSE SCRIPTS</div>
+    <div class="grid" data-group="scripts">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Scripts por defecto</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sC 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Ejecuta scripts de la categoría "default". Equivalente a --script=default. Cubre autenticación, info básica, etc.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> Vulnerabilidades conocidas</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script vuln 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Ejecuta todos los scripts de la categoría "vuln". Detecta CVEs conocidos, servicios débiles y misconfigs.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> Exploit scripts</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script exploit 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Intenta explotar vulnerabilidades detectadas. USAR SOLO en entornos controlados con autorización.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> SMB Vulnerabilities</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script smb-vuln* -p 139,445 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Detecta EternalBlue (MS17-010), MS08-067, SMBGhost y otras vulns SMB críticas en Windows.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> HTTP Enumeration</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script http-enum,http-headers,http-methods -p 80,443,8080 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Enumera directorios, headers de respuesta y métodos HTTP permitidos (PUT, DELETE, TRACE).</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> SSL/TLS Audit</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script ssl-enum-ciphers,ssl-cert,ssl-heartbleed -p 443 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Enumera cifrados soportados, extrae certificados y verifica Heartbleed (CVE-2014-0160).</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> Brute Force SSH</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script ssh-brute -p 22 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Ataque de fuerza bruta a SSH con lista de credenciales por defecto. Generará muchos logs en el objetivo.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> DNS Enumeration</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script dns-brute,dns-zone-transfer -p 53 target.com<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Enumera subdominios por fuerza bruta e intenta transferencia de zona DNS (AXFR).</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> MySQL Enumeration</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script mysql-info,mysql-databases,mysql-empty-password -p 3306 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Obtiene info del servidor MySQL, lista bases de datos y verifica cuentas sin contraseña.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> SNMP Enumeration</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sU --script snmp-info,snmp-sysdescr -p 161 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Extrae información del sistema vía SNMP. Community string "public" por defecto sigue siendo común.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> FTP Anonymous Login</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script ftp-anon,ftp-bounce -p 21 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Verifica acceso anónimo FTP y posibilidad de bounce attack. Frecuente en dispositivos legacy.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> Script con argumentos</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --script http-sql-injection --script-args http-sql-injection.url=/login -p 80 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Prueba inyección SQL en rutas web específicas. Pasa argumentos personalizados al script NSE.</div>
+      </div>
+
+    </div>
+
+    <!-- FIREWALL -->
+    <div class="section-title" style="margin-top:2rem" id="grp-firewall">FIREWALL & IDS EVASION</div>
+    <div class="grid" data-group="firewall">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> ACK Scan (mapear firewall)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sA -p 1-1000 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">No detecta puertos abiertos sino si están filtrados o no filtrados por el firewall. Mapea reglas ACL.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Window Scan</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -sW -p 1-1000 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Similar al ACK scan pero examina el campo TCP window. Distingue open/closed en algunos sistemas.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Datos random en payload</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --data-length 25 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Añade 25 bytes aleatorios al payload para evadir IDS basados en firmas de tamaño de paquete.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> MAC Address Spoof</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --spoof-mac Cisco 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Suplanta la MAC con un vendor específico (Cisco, Dell, Apple) o aleatoria. Solo efectivo en LAN.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Badsum (detección IDS)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --badsum 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Envía paquetes con checksum TCP/IP inválido. Un IDS que responde indica procesamiento a nivel usuario.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> Firewall bypass con MTU</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --mtu 16 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Fragmenta paquetes en bloques de 16 bytes. Algunos firewalls no reensamblan fragmentos tan pequeños.</div>
+      </div>
+
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="section-title" style="margin-top:2rem" id="grp-output">OUTPUT & REPORTING</div>
+    <div class="grid" data-group="output">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Output normal a archivo</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -oN resultado.txt 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Guarda la salida en formato legible por humanos. Idéal para documentación básica de auditoría.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Output XML (para herramientas)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -oX resultado.xml 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Formato XML compatible con Metasploit, Faraday, Dradis y otras plataformas de gestión de vulns.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Output Grepable</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -oG resultado.gnmap 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Formato compatible con grep y awk para procesamiento en scripts bash. Útil en pipelines de pentest.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Todos los formatos a la vez</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -oA scan_completo 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Genera simultáneamente .nmap, .xml y .gnmap. Práctica estándar en auditorías profesionales.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Verbose máximo</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -vvv -sS -A 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Triple verbosidad: muestra puertos abiertos en tiempo real y detalles de cada etapa del escaneo.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> Reanudar escaneo interrumpido</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --resume resultado.gnmap<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Continúa un escaneo interrumpido desde el último host procesado. Requiere output grepable previo.</div>
+      </div>
+
+    </div>
+
+    <!-- PERFORMANCE -->
+    <div class="section-title" style="margin-top:2rem" id="grp-performance">PERFORMANCE & TIMING</div>
+    <div class="grid" data-group="performance">
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> T0 — Paranoid</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -T0 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">5 minutos entre probes. Virtualmente indetectable por correlación temporal. Puede tardar días.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-stealth">STEALTH</span> T1 — Sneaky</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -T1 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">15 segundos entre probes. Evasivo contra la mayoría de IDS de correlación temporal.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-safe">PASIVO</span> T2 — Polite</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -T2 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Ralentiza el escaneo para reducir carga en la red. Apropiado en entornos de producción sensibles.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> T3 — Normal (default)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -T3 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Velocidad por defecto. Balance entre rapidez y confiabilidad. No activa medidas de timing especiales.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> T4 — Aggressive</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -T4 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Tiempos de espera más cortos. Recomendado en redes LAN rápidas durante CTFs o labs de pentest.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> T5 — Insane</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap -T5 192.168.1.1<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Velocidad máxima. Puede perder resultados en redes lentas. Solo útil en labs locales o broadband rápido.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-danger">AGRESIVO</span> Control de paralelismo</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --min-parallelism 100 --max-parallelism 256 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Fuerza entre 100 y 256 probes en paralelo. Acelera escaneos de red completa en entornos controlados.</div>
+      </div>
+
+      <div class="cmd-card">
+        <div class="cmd-label"><span class="tag tag-warning">MODERADO</span> Control de rate (pps)</div>
+        <div class="cmd-code" onclick="copyCmd(this)">nmap --min-rate 100 --max-rate 300 192.168.1.0/24<span class="copy-hint">[click to copy]</span></div>
+        <div class="cmd-desc">Limita la tasa de paquetes entre 100 y 300 por segundo. Controla el impacto en la red objetivo.</div>
+      </div>
+
+    </div>
+
+  </div><!-- end #section-all -->
+
+  <!-- Individual sections (filtered views) -->
+  <div class="section" id="section-discovery"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: HOST DISCOVERY]</p></div>
+  <div class="section" id="section-ports"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: PORT SCANNING]</p></div>
+  <div class="section" id="section-stealth"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: STEALTH & EVASION]</p></div>
+  <div class="section" id="section-version"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: VERSION & OS]</p></div>
+  <div class="section" id="section-scripts"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: NSE SCRIPTS]</p></div>
+  <div class="section" id="section-firewall"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: FIREWALL & IDS]</p></div>
+  <div class="section" id="section-output"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: OUTPUT]</p></div>
+  <div class="section" id="section-performance"><p style="color:var(--green-dim);font-size:.8rem;margin-bottom:1rem;">[Filtrando categoría: PERFORMANCE]</p></div>
+
+</main>
+
+<footer>
+  <span>NMAP SECURITY AUDIT TOOLKIT</span> // Solo para uso ético y autorizado //
+  <span>nmap.org</span>
+</footer>
+
+<div class="copied-toast" id="copiedToast">✓ Comando copiado al clipboard</div>
+
+<script>
+  // ── Matrix Rain ──
+  const rain = document.getElementById('matrixRain');
+  const chars = 'アイウエオカキクケコ01アBCDEF0101ウ10カ01エオABCD';
+  for (let i = 0; i < 30; i++) {
+    const col = document.createElement('div');
+    col.className = 'matrix-col';
+    col.style.left = (Math.random() * 100) + '%';
+    col.style.animationDuration = (Math.random() * 8 + 4) + 's';
+    col.style.animationDelay = (Math.random() * 6) + 's';
+    let txt = '';
+    for (let j = 0; j < 20; j++) txt += chars[Math.floor(Math.random() * chars.length)] + '\n';
+    col.textContent = txt;
+    rain.appendChild(col);
+  }
+
+  // ── Copy command ──
+  function copyCmd(el) {
+    const text = el.textContent.replace('[click to copy]', '').replace(/^\$\s*/, '').trim();
+    navigator.clipboard.writeText(text).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+    const toast = document.getElementById('copiedToast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  // ── Navigation tabs (clone cards per category) ──
+  const groupMap = {
+    discovery: 'discovery',
+    ports: 'ports',
+    stealth: 'stealth',
+    version: 'version',
+    scripts: 'scripts',
+    firewall: 'firewall',
+    output: 'output',
+    performance: 'performance'
+  };
+
+  // Pre-clone grids into individual sections
+  document.querySelectorAll('[data-group]').forEach(grid => {
+    const group = grid.dataset.group;
+    const target = document.getElementById('section-' + group);
+    if (target) {
+      const clone = grid.cloneNode(true);
+      target.appendChild(clone);
+    }
+  });
+
+  // Tab switching
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const sec = tab.dataset.section;
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.getElementById('section-' + sec).classList.add('active');
+      const search = document.getElementById('searchBar');
+      search.style.display = sec === 'all' ? 'flex' : 'none';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('noResults').style.display = 'none';
+      document.querySelectorAll('#section-all .cmd-card').forEach(c => c.style.display = '');
+    });
+  });
+
+  // ── Search ──
+  document.getElementById('searchBar').style.display = 'flex';
+  document.getElementById('searchInput').addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    const cards = document.querySelectorAll('#section-all .cmd-card');
+    let visible = 0;
+    cards.forEach(card => {
+      const txt = card.textContent.toLowerCase();
+      const show = !q || txt.includes(q);
+      card.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    // Hide/show group titles
+    document.querySelectorAll('#section-all .section-title').forEach(title => {
+      const gridId = title.nextElementSibling;
+      if (!gridId) return;
+      const anyVisible = [...gridId.querySelectorAll('.cmd-card')].some(c => c.style.display !== 'none');
+      title.style.display = anyVisible || !q ? '' : 'none';
+    });
+    document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
+  });
+</script>
+</body>
+</html>
